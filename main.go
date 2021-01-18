@@ -1,25 +1,50 @@
 package main
 
 import (
-	"github.com/gin-gonic/gin"
+	"github.com/codegangsta/martini-contrib/binding"
+	"github.com/go-martini/martini"
+	"github.com/martini-contrib/render"
 
-	"github.com/aed86/graph-api/config"
+	"github.com/aed86/amboss-graph-api/db"
+	"github.com/aed86/amboss-graph-api/handler/add"
+	delete2 "github.com/aed86/amboss-graph-api/handler/delete"
+	"github.com/aed86/amboss-graph-api/handler/get"
+	"github.com/aed86/amboss-graph-api/handler/update"
+	"github.com/aed86/amboss-graph-api/model"
+	node_service "github.com/aed86/amboss-graph-api/service/node"
+	relation_service "github.com/aed86/amboss-graph-api/service/relation"
 )
 
 func main() {
+	m := martini.Classic()
+	m.Use(render.Renderer(render.Options{
+		Charset: "UTF-8",
+	}))
 
-	_ = config.Connect()
+	dbConnection := db.Connect()
+	defer dbConnection.Disconnect()
 
-	r := gin.Default()
-	r.GET("/ping", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"message": "pong23",
-		})
+	nodeService := node_service.New(&dbConnection)
+	relationService := relation_service.New(&dbConnection)
+	getHandler := get.NewHandler(nodeService, relationService)
+	addHandler := add.NewHandler(nodeService, relationService)
+	deleteHandler := delete2.NewHandler(nodeService, relationService)
+	updateHandler := update.NewHandler(nodeService)
+
+	m.Get("/", getHandler.GetAll)
+
+	m.Group("/node", func (r martini.Router) {
+		r.Get("", getHandler.GetAllNodes)
+		r.Get("/:id", getHandler.GetNodeById)
+		r.Post("", binding.Bind(model.Node{}), addHandler.AddNode)
+		r.Put("/:id", binding.Bind(model.Node{}), updateHandler.UpdateNode)
+		r.Delete("/:id", deleteHandler.DeleteNode)
 	})
-	r.GET("/test", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"message": "test",
-		})
+
+	m.Group("/relation", func (r martini.Router) {
+		r.Post("", binding.Bind(model.Link{}), addHandler.AddRelation)
+		r.Delete("", binding.Bind(model.Link{}), deleteHandler.DeleteRelation)
 	})
-	r.Run(":3001")
+
+	m.Run()
 }
