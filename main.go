@@ -34,15 +34,24 @@ func main() {
 	m.Get("/", getHandler.GetAll)
 
 	m.Group("/node", func (r martini.Router) {
+		// Get all existed nodes
 		r.Get("", getHandler.GetAllNodes)
+		// Get node details by node id
 		r.Get("/:id", getHandler.GetNodeById)
+		// Get all neighbours for node by id
+		r.Get("/:id/neighbours", getHandler.GetNeighbours)
+		// Add new node
 		r.Post("", binding.Bind(model.Node{}), addHandler.AddNode)
+		// Update node attrs
 		r.Put("/:id", binding.Bind(model.Node{}), updateHandler.UpdateNode)
+		// Remove node with all edges
 		r.Delete("/:id", deleteHandler.DeleteNode)
 	})
 
 	m.Group("/relation", func (r martini.Router) {
+		// Create new edge between nodes
 		r.Post("", binding.Bind(model.Link{}), addHandler.AddRelation)
+		// Remove edge between nodes
 		r.Delete("", binding.Bind(model.Link{}), deleteHandler.DeleteRelation)
 	})
 

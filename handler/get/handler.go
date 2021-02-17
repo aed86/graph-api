@@ -56,6 +56,21 @@ func (h Handler) GetNodeById(params martini.Params, r render.Render) {
 	response.Error(r, "Not found", 404)
 }
 
+func (h Handler) GetNeighbours(params martini.Params, r render.Render) {
+	if v, ok := params["id"]; ok {
+		nodeId, _ := strconv.ParseInt(v, 10, 64)
+		n, err := h.ns.GetNeighboursForNodeById(nodeId)
+		if err != nil {
+			response.Error(r, err.Error(), 200)
+		}
+
+		response.Result(r, n)
+		return
+	}
+
+	response.Error(r, "Not found", 404)
+}
+
 func (h Handler) GetAll(r render.Render) {
 	result, err := h.rs.GetAll()
 
