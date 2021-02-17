@@ -47,6 +47,7 @@ func (h Handler) GetNodeById(params martini.Params, r render.Render) {
 		n, err := h.ns.GetNodeById(nodeId)
 		if err != nil {
 			response.Error(r, err.Error(), 200)
+			return
 		}
 
 		response.Result(r, n)
@@ -62,6 +63,7 @@ func (h Handler) GetNeighbours(params martini.Params, r render.Render) {
 		n, err := h.ns.GetNeighboursForNodeById(nodeId)
 		if err != nil {
 			response.Error(r, err.Error(), 200)
+			return
 		}
 
 		response.Result(r, n)

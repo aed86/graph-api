@@ -5,7 +5,6 @@ import (
 	"log"
 
 	"github.com/neo4j/neo4j-go-driver/v4/neo4j"
-	"github.com/neo4j/neo4j-go-driver/v4/neo4j/db"
 	"github.com/neo4j/neo4j-go-driver/v4/neo4j/dbtype"
 
 	"github.com/aed86/amboss-graph-api/model"
@@ -133,7 +132,7 @@ func (s Service) findAllNodesTxFunc(limit int) neo4j.TransactionWork {
 
 func (s Service) findNeighboursByNodeIdTxFunc(baseNodeID int64) neo4j.TransactionWork {
 	return func(tx neo4j.Transaction) (interface{}, error) {
-		result, err := tx.Run(
+		rtx, err := tx.Run(
 			"MATCH (a)-[:DIRECTED]->(b) WHERE ID(a) = $ID RETURN b",
 			map[string]interface{}{
 				"ID": baseNodeID,
@@ -143,13 +142,11 @@ func (s Service) findNeighboursByNodeIdTxFunc(baseNodeID int64) neo4j.Transactio
 			return nil, err
 		}
 
-		var records []db.Record
-		for result.Next() {
-			if result.Record() != nil {
-				records = append(records, *result.Record())
-			}
+		var results []interface{}
+		for rtx.Next() {
+			results = append(results, rtx.Record().Values[0])
 		}
 
-		return records, nil
+		return results, nil
 	}
 }
