@@ -1,6 +1,8 @@
 package node
 
 import (
+	"errors"
+
 	"github.com/neo4j/neo4j-go-driver/v4/neo4j"
 	"github.com/neo4j/neo4j-go-driver/v4/neo4j/dbtype"
 
@@ -14,6 +16,10 @@ func (s *Service) UpdateNode(node model.Node) (*model.Node, error) {
 	record, err := session.WriteTransaction(s.updateNodeTxFunc(node))
 	if err != nil {
 		return nil, err
+	}
+
+	if record == nil {
+		return nil, errors.New("node is not found")
 	}
 
 	resultNode := model.ParseFromDbTypeToNode(record.(dbtype.Node))

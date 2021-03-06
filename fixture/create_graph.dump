@@ -1,0 +1,8 @@
+CALL gds.graph.create(
+    'myGraph4',
+    'Node',
+    'ROAD',
+    {
+        relationshipProperties:'cost'
+    }
+)

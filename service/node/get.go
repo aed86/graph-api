@@ -11,7 +11,7 @@ import (
 )
 
 func (s Service) GetNodeById(nodeId int64) (*model.Node, error) {
-	session := s.db.InitReadSession()
+	session := s.db.InitReadSession([]string{})
 	defer session.Close()
 
 	node, err := session.ReadTransaction(s.findNodeByIdTxFunc(nodeId))
@@ -24,7 +24,7 @@ func (s Service) GetNodeById(nodeId int64) (*model.Node, error) {
 }
 
 func (s Service) GetNeighboursForNodeById(baseNodeID int64) (*[]model.Node, error) {
-	session := s.db.InitReadSession()
+	session := s.db.InitReadSession([]string{})
 	defer session.Close()
 
 	nodes, err := session.ReadTransaction(s.findNeighboursByNodeIdTxFunc(baseNodeID))
@@ -105,7 +105,7 @@ func (s Service) findNodeByIdTxFunc(id int64) neo4j.TransactionWork {
 			return result.Record().Values[0], nil
 		}
 
-		return nil, errors.New("one record was expected")
+		return nil, errors.New("node is not found")
 	}
 }
 

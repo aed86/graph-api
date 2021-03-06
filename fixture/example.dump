@@ -1,9 +1,10 @@
-CREATE (a:Node {name: 'A', bord:'1'}),
-       (b:Node {name: 'B', bord:'1'}),
-       (c:Node {name: 'C', bord:'1'}),
-       (d:Node {name: 'D', bord:'1'}),
-       (e:Node {name: 'E', bord:'1'}),
-       (f:Node {name: 'F', bord:'1'}),
+// Create nodes and links
+CREATE (a:Node {name: 'A', born:'1'}),
+       (b:Node {name: 'B', born:'1'}),
+       (c:Node {name: 'C', born:'1'}),
+       (d:Node {name: 'D', born:'1'}),
+       (e:Node {name: 'E', born:'1'}),
+       (f:Node {name: 'F', born:'1'}),
        (a)-[:ROAD {cost: 50}]->(b),
        (a)-[:ROAD {cost: 50}]->(c),
        (a)-[:ROAD {cost: 100}]->(d),
@@ -14,7 +15,7 @@ CREATE (a:Node {name: 'A', bord:'1'}),
        (d)-[:ROAD {cost: 80}]->(f),
        (e)-[:ROAD {cost: 40}]->(f);
 
-
+// Create graph
 CALL gds.graph.create(
     'myGraph4',
     'Node',

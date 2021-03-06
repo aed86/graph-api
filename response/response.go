@@ -1,8 +1,6 @@
 package response
 
 import (
-	"encoding/json"
-
 	"github.com/martini-contrib/render"
 )
 
@@ -28,10 +26,10 @@ func Result(r render.Render, result interface{}) {
 }
 
 func Error(r render.Render, msg string, status int) {
-	res, _ := json.Marshal(Response{
+	res := Response{
 		Error:   msg,
 		Success: false,
-	})
+	}
 
 	if status == 0 {
 		status = SuccessStatusCode

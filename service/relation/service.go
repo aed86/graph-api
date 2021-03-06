@@ -20,7 +20,7 @@ func New(db *db_connection.Db) *Service {
 }
 
 func (s *Service) GetShortestPath(cond model.PathIn) ([]model.PathOut, error) {
-	session := s.db.InitReadSession()
+	session := s.db.InitReadSession([]string{})
 	defer session.Close()
 
 	res, err := session.ReadTransaction(s.findShortestPath(cond))
@@ -81,7 +81,7 @@ func (s Service) DeleteRelation(personID1, personID2 int64) error {
 }
 
 func (s *Service) GetAll() (*model.Relation, error) {
-	session := s.db.InitReadSession()
+	session := s.db.InitReadSession([]string{})
 	defer session.Close()
 
 	res, err := session.ReadTransaction(s.findAllNodesWithRelationsTxFunc())

@@ -21,7 +21,7 @@ func NewHandler(ns *node_service.Service) Handler {
 func (h *Handler) UpdateNode(node model.Node, r render.Render) {
 	res, err := h.ns.UpdateNode(node)
 	if err != nil {
-		response.Error(r, err.Error(), 400)
+		response.Error(r, err.Error(), 404)
 		return
 	}
 
