@@ -62,9 +62,10 @@ I have realised base REST API with main handlers which allow get, add, update an
 
 ###### Get all neighbours for node
 
-`curl --location --request GET 'localhost:3000/node/43/neighbours' \
+`curl --location --request GET 'localhost:3000/node/52/neighbours' \
 --header 'Content-Type: application/json' \
---data-raw ''`
+--data-raw '{
+}'`
 
 
 ###### Remove node by id

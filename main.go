@@ -32,7 +32,7 @@ func main() {
 	deleteHandler := delete2.NewHandler(nodeService, relationService)
 	updateHandler := update.NewHandler(nodeService)
 	findHandler := find.NewHandler(relationService)
-	m.Get("/", getHandler.GetAll)
+	m.Get("/", binding.Bind(model.ReqIn{}), getHandler.GetAll)
 
 	m.Group("/find", func (r martini.Router) {
 		r.Post("/shortest_path", binding.Bind(model.PathIn{}), findHandler.ShortestPath)
@@ -44,7 +44,7 @@ func main() {
 		// Get node details by node id
 		r.Get("/:id", getHandler.GetNodeById)
 		// Get all neighbours for node by id
-		r.Get("/:id/neighbours", getHandler.GetNeighbours)
+		r.Get("/:id/neighbours", binding.Bind(model.ReqIn{}), getHandler.GetNeighbours)
 		// Add new node
 		r.Post("", binding.Bind(model.Node{}), addHandler.AddNode)
 		// Update node attrs

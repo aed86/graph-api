@@ -6,7 +6,7 @@ import "github.com/neo4j/neo4j-go-driver/v4/neo4j/dbtype"
 type Node struct {
 	ID   int64  `json:"Id"`
 	Name string `json:"name"`
-	Born int64  `json:"born"`
+	Born string  `json:"born"`
 }
 
 func ParseFromDbTypeToNode(node dbtype.Node) Node {
@@ -20,7 +20,7 @@ func ParseFromDbTypeToNode(node dbtype.Node) Node {
 	}
 
 	if v, ok := props["born"]; ok {
-		modelNode.Born = v.(int64)
+		modelNode.Born = v.(string)
 	}
 
 	return modelNode

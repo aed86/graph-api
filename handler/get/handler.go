@@ -1,8 +1,6 @@
 package get
 
 import (
-	"strconv"
-
 	"github.com/go-martini/martini"
 
 	"github.com/martini-contrib/render"
@@ -11,6 +9,7 @@ import (
 	"github.com/aed86/amboss-graph-api/response"
 	"github.com/aed86/amboss-graph-api/service/node"
 	"github.com/aed86/amboss-graph-api/service/relation"
+	"github.com/aed86/amboss-graph-api/utils"
 )
 
 type Handler struct {
@@ -30,8 +29,8 @@ type Result struct {
 	Links []model.Link `json:"links"`
 }
 
-func (h Handler) GetAllNodes(r render.Render) {
-	result, err := h.ns.GetAllNodes(10)
+func (h Handler) GetAllNodes(payload model.ReqIn, r render.Render) {
+	result, err := h.ns.GetAllNodes(utils.GetLimitFromReq(payload))
 
 	if err != nil {
 		response.Error(r, err.Error(), 400)
@@ -42,39 +41,47 @@ func (h Handler) GetAllNodes(r render.Render) {
 }
 
 func (h Handler) GetNodeById(params martini.Params, r render.Render) {
-	if v, ok := params["id"]; ok {
-		nodeId, _ := strconv.ParseInt(v, 10, 64)
-		n, err := h.ns.GetNodeById(nodeId)
-		if err != nil {
-			response.Error(r, err.Error(), 200)
-			return
-		}
+	nodeId, err := utils.GetId(params)
+	if err != nil {
+		response.Error(r, "validation error", 400)
+	}
 
-		response.Result(r, n)
+	n, err := h.ns.GetNodeById(nodeId)
+	if err != nil {
+		response.Error(r, err.Error(), 200)
 		return
 	}
 
-	response.Error(r, "Not found", 404)
+	if n == nil {
+		response.Error(r, "node not found", 400)
+	}
+
+	response.Result(r, n)
+	return
 }
 
-func (h Handler) GetNeighbours(params martini.Params, r render.Render) {
-	if v, ok := params["id"]; ok {
-		nodeId, _ := strconv.ParseInt(v, 10, 64)
-		n, err := h.ns.GetNeighboursForNodeById(nodeId)
-		if err != nil {
-			response.Error(r, err.Error(), 200)
-			return
-		}
+func (h Handler) GetNeighbours(params martini.Params, payload model.ReqIn, r render.Render) {
+	nodeId, err := utils.GetId(params)
+	if err != nil {
+		response.Error(r, "validation error", 400)
+	}
 
-		response.Result(r, n)
+	n, err := h.ns.GetNeighboursForNodeById(nodeId, utils.GetLimitFromReq(payload))
+	if err != nil {
+		response.Error(r, err.Error(), 200)
 		return
 	}
 
-	response.Error(r, "Not found", 404)
+	if n == nil {
+		response.Error(r, "node not found", 404)
+	}
+
+	response.Result(r, n)
+	return
 }
 
-func (h Handler) GetAll(r render.Render) {
-	result, err := h.rs.GetAll()
+func (h Handler) GetAll(payload model.ReqIn, r render.Render) {
+	result, err := h.rs.GetAll(utils.GetLimitFromReq(payload))
 
 	if err != nil {
 		response.Error(r, err.Error(), 404)

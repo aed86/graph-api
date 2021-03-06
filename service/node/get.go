@@ -2,7 +2,6 @@ package node
 
 import (
 	"errors"
-	"log"
 
 	"github.com/neo4j/neo4j-go-driver/v4/neo4j"
 	"github.com/neo4j/neo4j-go-driver/v4/neo4j/dbtype"
@@ -23,11 +22,11 @@ func (s Service) GetNodeById(nodeId int64) (*model.Node, error) {
 	return &result, nil
 }
 
-func (s Service) GetNeighboursForNodeById(baseNodeID int64) (*[]model.Node, error) {
+func (s Service) GetNeighboursForNodeById(baseNodeID, limit int64) (*[]model.Node, error) {
 	session := s.db.InitReadSession([]string{})
 	defer session.Close()
 
-	nodes, err := session.ReadTransaction(s.findNeighboursByNodeIdTxFunc(baseNodeID))
+	nodes, err := session.ReadTransaction(s.findNeighboursByNodeIdTxFunc(baseNodeID, limit))
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +39,7 @@ func (s Service) GetNeighboursForNodeById(baseNodeID int64) (*[]model.Node, erro
 	return &modelResult, nil
 }
 
-func (s Service) GetAllNodes(limit int) (*[]model.Node, error) {
+func (s Service) GetAllNodes(limit int64) (*[]model.Node, error) {
 	session := s.db.InitWriteSession()
 	defer session.Close()
 
@@ -57,26 +56,6 @@ func (s Service) GetAllNodes(limit int) (*[]model.Node, error) {
 	return &modelResult, nil
 }
 
-func (s Service) GetAll() *[]model.Node {
-	session := s.db.InitWriteSession()
-	defer session.Close()
-
-	query := `MATCH (e:Node) RETURN e.ID as ID, e.name as name, e.born as born LIMIT $limit`
-	result, err := session.Run(query, map[string]interface{}{"limit": 10})
-	if err != nil {
-		log.Println("Error querying Neo4j", err)
-		return nil
-	}
-	var nodes []model.Node
-	for result.Next() {
-		record := result.Record()
-		node := s.parseNode(record)
-		nodes = append(nodes, node)
-	}
-
-	return &nodes
-}
-
 func (s Service) parseNode(record *neo4j.Record) model.Node {
 	ID, _ := record.Get("ID")
 	name, _ := record.Get("name")
@@ -85,7 +64,7 @@ func (s Service) parseNode(record *neo4j.Record) model.Node {
 	return model.Node{
 		ID:   ID.(int64),
 		Name: name.(string),
-		Born: born.(int64),
+		Born: born.(string),
 	}
 }
 
@@ -109,7 +88,7 @@ func (s Service) findNodeByIdTxFunc(id int64) neo4j.TransactionWork {
 	}
 }
 
-func (s Service) findAllNodesTxFunc(limit int) neo4j.TransactionWork {
+func (s Service) findAllNodesTxFunc(limit int64) neo4j.TransactionWork {
 	return func(tx neo4j.Transaction) (interface{}, error) {
 		rtx, err := tx.Run(
 			"MATCH (e:Node) RETURN e LIMIT $limit",
@@ -130,12 +109,13 @@ func (s Service) findAllNodesTxFunc(limit int) neo4j.TransactionWork {
 	}
 }
 
-func (s Service) findNeighboursByNodeIdTxFunc(baseNodeID int64) neo4j.TransactionWork {
+func (s Service) findNeighboursByNodeIdTxFunc(baseNodeID, limit int64) neo4j.TransactionWork {
 	return func(tx neo4j.Transaction) (interface{}, error) {
 		rtx, err := tx.Run(
-			"MATCH (a)-[:ROAD]->(b) WHERE ID(a) = $ID RETURN b",
+			"MATCH (a)-[:ROAD]->(b) WHERE ID(a) = $ID RETURN b LIMIT $limit",
 			map[string]interface{}{
 				"ID": baseNodeID,
+				"limit": limit,
 			},
 		)
 		if err != nil {

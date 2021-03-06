@@ -40,12 +40,12 @@ func (s *Service) buildPathInfoFromRecords(records []db.Record) []model.PathOut 
 		values := record.Values
 
 		path := model.PathOut{
-			Idx: values[0].(int64),
+			Idx:            values[0].(int64),
 			SourceNodeName: values[1].(string),
 			TargetNodeName: values[2].(string),
-			TotalCost: values[3].(float64),
-			Path: values[4],
-			PathCosts: values[5],
+			TotalCost:      values[3].(float64),
+			Path:           values[4],
+			PathCosts:      values[5],
 		}
 
 		paths = append(paths, path)
@@ -80,11 +80,11 @@ func (s Service) DeleteRelation(personID1, personID2 int64) error {
 	return nil
 }
 
-func (s *Service) GetAll() (*model.Relation, error) {
+func (s *Service) GetAll(limit int64) (*model.Relation, error) {
 	session := s.db.InitReadSession([]string{})
 	defer session.Close()
 
-	res, err := session.ReadTransaction(s.findAllNodesWithRelationsTxFunc())
+	res, err := session.ReadTransaction(s.findAllNodesWithRelationsTxFunc(limit))
 	if err != nil {
 		return nil, err
 	}
@@ -100,6 +100,7 @@ func (s *Service) buildRelationsFromRecordsPair(res []db.Record) model.Relation 
 	for _, recordPair := range res {
 		sourceNode := model.ParseFromDbTypeToNode(recordPair.Values[0].(dbtype.Node))
 		targetNode := model.ParseFromDbTypeToNode(recordPair.Values[1].(dbtype.Node))
+		link := model.ParseFromDbTypeToLink(recordPair.Values[2].(dbtype.Relationship))
 		if _, ok := nodes[sourceNode.ID]; !ok {
 			nodes[sourceNode.ID] = sourceNode
 		}
@@ -107,10 +108,7 @@ func (s *Service) buildRelationsFromRecordsPair(res []db.Record) model.Relation 
 			nodes[targetNode.ID] = targetNode
 		}
 
-		links = append(links, model.Link{
-			Source: sourceNode.ID,
-			Target: targetNode.ID,
-		})
+		links = append(links, link)
 	}
 
 	return model.Relation{
@@ -119,9 +117,15 @@ func (s *Service) buildRelationsFromRecordsPair(res []db.Record) model.Relation 
 	}
 }
 
-func (s *Service) findAllNodesWithRelationsTxFunc() neo4j.TransactionWork {
+func (s *Service) findAllNodesWithRelationsTxFunc(limit int64) neo4j.TransactionWork {
 	return func(tx neo4j.Transaction) (interface{}, error) {
-		result, err := tx.Run("MATCH (a)-[:ROAD]->(b) RETURN a, b", nil)
+		result, err := tx.Run("MATCH (a:Node)-[d:ROAD]-(b:Node) RETURN a, b, d", nil)
+		//result, err := tx.Run(
+		//	"MATCH (a:Node) MATCH (a)-[d:ROAD]-(:Node) RETURN a, collect(d) as roads limit $limit",
+		//	map[string]interface{}{
+		//		"limit": limit,
+		//	},
+		//)
 		if err != nil {
 			return nil, err
 		}
