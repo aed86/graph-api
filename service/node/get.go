@@ -133,7 +133,7 @@ func (s Service) findAllNodesTxFunc(limit int) neo4j.TransactionWork {
 func (s Service) findNeighboursByNodeIdTxFunc(baseNodeID int64) neo4j.TransactionWork {
 	return func(tx neo4j.Transaction) (interface{}, error) {
 		rtx, err := tx.Run(
-			"MATCH (a)-[:DIRECTED]->(b) WHERE ID(a) = $ID RETURN b",
+			"MATCH (a)-[:ROAD]->(b) WHERE ID(a) = $ID RETURN b",
 			map[string]interface{}{
 				"ID": baseNodeID,
 			},

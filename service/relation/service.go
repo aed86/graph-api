@@ -19,6 +19,41 @@ func New(db *db_connection.Db) *Service {
 	}
 }
 
+func (s *Service) GetShortestPath(cond model.PathIn) ([]model.PathOut, error) {
+	session := s.db.InitReadSession()
+	defer session.Close()
+
+	res, err := session.ReadTransaction(s.findShortestPath(cond))
+	if err != nil {
+		return nil, err
+	}
+
+	result := s.buildPathInfoFromRecords(res.([]db.Record))
+
+	return result, nil
+}
+
+func (s *Service) buildPathInfoFromRecords(records []db.Record) []model.PathOut {
+	var paths []model.PathOut
+
+	for _, record := range records {
+		values := record.Values
+
+		path := model.PathOut{
+			Idx: values[0].(int64),
+			SourceNodeName: values[1].(string),
+			TargetNodeName: values[2].(string),
+			TotalCost: values[3].(float64),
+			Path: values[4],
+			PathCosts: values[5],
+		}
+
+		paths = append(paths, path)
+	}
+
+	return paths
+}
+
 func (s Service) AddRelation(personID1, personID2 int64) (*model.Relation, error) {
 	session := s.db.InitWriteSession()
 	defer session.Close()
@@ -86,11 +121,33 @@ func (s *Service) buildRelationsFromRecordsPair(res []db.Record) model.Relation 
 
 func (s *Service) findAllNodesWithRelationsTxFunc() neo4j.TransactionWork {
 	return func(tx neo4j.Transaction) (interface{}, error) {
-		result, err := tx.Run("MATCH (a)-[:DIRECTED]->(b) RETURN a, b", nil)
+		result, err := tx.Run("MATCH (a)-[:ROAD]->(b) RETURN a, b", nil)
 		if err != nil {
 			return nil, err
 		}
 
+		var records []db.Record
+		for result.Next() {
+			if result.Record() != nil {
+				records = append(records, *result.Record())
+			}
+		}
+
+		return records, nil
+	}
+}
+
+func (s *Service) findShortestPath(cond model.PathIn) neo4j.TransactionWork {
+	return func(tx neo4j.Transaction) (interface{}, error) {
+		query := `MATCH (source:Node {name: $sname}), (target:Node {name: $tname}) CALL gds.beta.shortestPath.dijkstra.stream('myGraph4', {sourceNode: id(source),targetNode: id(target),relationshipWeightProperty: 'cost'}) YIELD index, sourceNode, targetNode, totalCost, nodeIds, costs RETURN index, gds.util.asNode(sourceNode).name AS sourceNodeName, gds.util.asNode(targetNode).name AS targetNodeName, totalCost, [nodeId IN nodeIds |gds.util.asNode(nodeId).name] AS nodeNames, costs ORDER BY index`
+		result, err := tx.Run(query, map[string]interface{}{
+			"sname": cond.SourceName,
+			"tname": cond.TargetName,
+		})
+
+		if err != nil {
+			return nil, err
+		}
 		var records []db.Record
 		for result.Next() {
 			if result.Record() != nil {
@@ -107,7 +164,7 @@ func (s Service) addRelation(personID1 int64, personID2 int64) neo4j.Transaction
 		result, err := tx.Run(
 			"MATCH (a:Node) WHERE ID(a) = $ID1 "+
 				"MATCH (b:Node) WHERE ID(b) = $ID2 "+
-				"MERGE (a)-[:DIRECTED]->(b) RETURN a, b", map[string]interface{}{"ID1": personID1, "ID2": personID2})
+				"MERGE (a)-[:ROAD]->(b) RETURN a, b", map[string]interface{}{"ID1": personID1, "ID2": personID2})
 
 		if err != nil {
 			return nil, err
@@ -127,7 +184,7 @@ func (s Service) addRelation(personID1 int64, personID2 int64) neo4j.Transaction
 func (s Service) deleteRelation(personID1 int64, personID2 int64) neo4j.TransactionWork {
 	return func(tx neo4j.Transaction) (interface{}, error) {
 		result, err := tx.Run(
-			"MATCH (a:Node)-[d:DIRECTED]->(b:Node) WHERE ID(a) = $ID1 and ID(b) = $ID2 DELETE d",
+			"MATCH (a:Node)-[d:ROAD]->(b:Node) WHERE ID(a) = $ID1 and ID(b) = $ID2 DELETE d",
 			map[string]interface{}{"ID1": personID1, "ID2": personID2},
 		)
 

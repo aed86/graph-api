@@ -5,7 +5,10 @@ services:
     container_name: 'neo4j'
     volumes:
       - '$HOME/neo4j/data:/data'
-      - '$HOME/neo4j/conf/:/conf/'
+      - './neo4j/conf/:/conf/'
+      - './neo4j/plugins/:/var/lib/neo4j/plugins/'
+    environment:
+      - NEO4JLABS_PLUGINS='["gds"]'
     ports:
       - 7474:7474
       - 7687:7687

@@ -1,0 +1,53 @@
+CREATE (a:Node {name: 'A', bord:'1'}),
+       (b:Node {name: 'B', bord:'1'}),
+       (c:Node {name: 'C', bord:'1'}),
+       (d:Node {name: 'D', bord:'1'}),
+       (e:Node {name: 'E', bord:'1'}),
+       (f:Node {name: 'F', bord:'1'}),
+       (a)-[:ROAD {cost: 50}]->(b),
+       (a)-[:ROAD {cost: 50}]->(c),
+       (a)-[:ROAD {cost: 100}]->(d),
+       (b)-[:ROAD {cost: 40}]->(d),
+       (c)-[:ROAD {cost: 40}]->(d),
+       (c)-[:ROAD {cost: 80}]->(e),
+       (d)-[:ROAD {cost: 30}]->(e),
+       (d)-[:ROAD {cost: 80}]->(f),
+       (e)-[:ROAD {cost: 40}]->(f);
+
+
+CALL gds.graph.create(
+    'myGraph4',
+    'Node',
+    'ROAD',
+    {
+        relationshipProperties:'cost'
+    }
+)
+
+// Estimate algorithm execution cost
+MATCH (source:Node {name: 'A'}), (target:Node {name: 'F'})
+CALL gds.beta.shortestPath.dijkstra.write.estimate('myGraph4', {
+    sourceNode: id(source),
+    targetNode: id(target),
+    relationshipWeightProperty: 'cost',
+    writeRelationshipType: 'PATH'
+})
+YIELD nodeCount, relationshipCount, bytesMin, bytesMax, requiredMemory
+RETURN nodeCount, relationshipCount, bytesMin, bytesMax, requiredMemory
+
+// To find the shortest path from the source to the target using a cost of every road
+MATCH (source:Node {name: 'A'}), (target:Node {name: 'F'})
+CALL gds.beta.shortestPath.dijkstra.stream('myGraph4', {
+    sourceNode: id(source),
+    targetNode: id(target),
+    relationshipWeightProperty: 'cost'
+})
+YIELD index, sourceNode, targetNode, totalCost, nodeIds, costs
+RETURN
+    index,
+    gds.util.asNode(sourceNode).name AS sourceNodeName,
+    gds.util.asNode(targetNode).name AS targetNodeName,
+    totalCost,
+    [nodeId IN nodeIds | gds.util.asNode(nodeId).name] AS nodeNames,
+    costs
+ORDER BY index

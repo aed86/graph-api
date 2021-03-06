@@ -8,6 +8,7 @@ import (
 	"github.com/aed86/amboss-graph-api/db"
 	"github.com/aed86/amboss-graph-api/handler/add"
 	delete2 "github.com/aed86/amboss-graph-api/handler/delete"
+	"github.com/aed86/amboss-graph-api/handler/find"
 	"github.com/aed86/amboss-graph-api/handler/get"
 	"github.com/aed86/amboss-graph-api/handler/update"
 	"github.com/aed86/amboss-graph-api/model"
@@ -30,8 +31,12 @@ func main() {
 	addHandler := add.NewHandler(nodeService, relationService)
 	deleteHandler := delete2.NewHandler(nodeService, relationService)
 	updateHandler := update.NewHandler(nodeService)
-
+	findHandler := find.NewHandler(relationService)
 	m.Get("/", getHandler.GetAll)
+
+	m.Group("/find", func (r martini.Router) {
+		r.Post("/shortest_path", binding.Bind(model.PathIn{}), findHandler.ShortestPath)
+	})
 
 	m.Group("/node", func (r martini.Router) {
 		// Get all existed nodes
