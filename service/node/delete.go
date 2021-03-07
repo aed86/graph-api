@@ -5,7 +5,7 @@ import (
 )
 
 func (s *Service) DeleteNode(nodeID int64) error {
-	session := s.db.InitWriteSession()
+	session := s.db.InitWriteSession([]string{})
 	defer session.Close()
 
 	_, err := session.WriteTransaction(s.deleteNodeTxFunc(nodeID))

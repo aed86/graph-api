@@ -7,15 +7,18 @@ import (
 
 	db_connection "github.com/aed86/amboss-graph-api/db"
 	"github.com/aed86/amboss-graph-api/model"
+	"github.com/aed86/amboss-graph-api/service/node"
 )
 
 type Service struct {
 	db *db_connection.Db
+	ns *node.Service
 }
 
-func New(db *db_connection.Db) *Service {
+func New(db *db_connection.Db, ns *node.Service) *Service {
 	return &Service{
 		db: db,
+		ns: ns,
 	}
 }
 
@@ -33,32 +36,13 @@ func (s *Service) GetShortestPath(cond model.PathIn) ([]model.PathOut, error) {
 	return result, nil
 }
 
-func (s *Service) buildPathInfoFromRecords(records []db.Record) []model.PathOut {
-	var paths []model.PathOut
+func (s *Service) AddRelation(nodeID1, nodeID2 int64) (*model.Relation, error) {
+	bookmark1, err := s.ns.CheckIfNodesExist([]int64{nodeID1, nodeID2})
 
-	for _, record := range records {
-		values := record.Values
-
-		path := model.PathOut{
-			Idx:            values[0].(int64),
-			SourceNodeName: values[1].(string),
-			TargetNodeName: values[2].(string),
-			TotalCost:      values[3].(float64),
-			Path:           values[4],
-			PathCosts:      values[5],
-		}
-
-		paths = append(paths, path)
-	}
-
-	return paths
-}
-
-func (s *Service) AddRelation(personID1, personID2 int64) (*model.Relation, error) {
-	session := s.db.InitWriteSession()
+	session := s.db.InitWriteSession([]string{bookmark1})
 	defer session.Close()
 
-	res, err := session.WriteTransaction(s.addRelation(personID1, personID2))
+	res, err := session.WriteTransaction(s.addRelation(nodeID1, nodeID2))
 	if err != nil {
 		return nil, err
 	}
@@ -68,11 +52,13 @@ func (s *Service) AddRelation(personID1, personID2 int64) (*model.Relation, erro
 	return &relation, nil
 }
 
-func (s *Service) DeleteRelation(personID1, personID2 int64) error {
-	session := s.db.InitWriteSession()
+func (s *Service) DeleteRelation(nodeID1, nodeID2 int64) error {
+	bookmark1, err := s.ns.CheckIfNodesExist([]int64{nodeID1, nodeID2})
+
+	session := s.db.InitWriteSession([]string{bookmark1})
 	defer session.Close()
 
-	_, err := session.WriteTransaction(s.deleteRelation(personID1, personID2))
+	_, err = session.WriteTransaction(s.deleteRelation(nodeID1, nodeID2))
 	if err != nil {
 		return err
 	}
@@ -199,12 +185,12 @@ func (s *Service) findShortestPath(cond model.PathIn) neo4j.TransactionWork {
 	}
 }
 
-func (s *Service) addRelation(personID1 int64, personID2 int64) neo4j.TransactionWork {
+func (s *Service) addRelation(nodeID1 int64, nodeID2 int64) neo4j.TransactionWork {
 	return func(tx neo4j.Transaction) (interface{}, error) {
 		result, err := tx.Run(
 			"MATCH (a:Node) WHERE ID(a) = $ID1 "+
 				"MATCH (b:Node) WHERE ID(b) = $ID2 "+
-				"MERGE (a)-[:ROAD]->(b) RETURN a, b", map[string]interface{}{"ID1": personID1, "ID2": personID2})
+				"MERGE (a)-[d:ROAD]->(b) RETURN a, b, d", map[string]interface{}{"ID1": nodeID1, "ID2": nodeID2})
 
 		if err != nil {
 			return nil, err
@@ -221,11 +207,11 @@ func (s *Service) addRelation(personID1 int64, personID2 int64) neo4j.Transactio
 	}
 }
 
-func (s *Service) deleteRelation(personID1 int64, personID2 int64) neo4j.TransactionWork {
+func (s *Service) deleteRelation(nodeID1 int64, nodeID2 int64) neo4j.TransactionWork {
 	return func(tx neo4j.Transaction) (interface{}, error) {
 		result, err := tx.Run(
 			"MATCH (a:Node)-[d:ROAD]->(b:Node) WHERE ID(a) = $ID1 and ID(b) = $ID2 DELETE d",
-			map[string]interface{}{"ID1": personID1, "ID2": personID2},
+			map[string]interface{}{"ID1": nodeID1, "ID2": nodeID2},
 		)
 
 		if err != nil {
@@ -234,4 +220,25 @@ func (s *Service) deleteRelation(personID1 int64, personID2 int64) neo4j.Transac
 
 		return result.Consume()
 	}
+}
+
+func (s *Service) buildPathInfoFromRecords(records []db.Record) []model.PathOut {
+	var paths []model.PathOut
+
+	for _, record := range records {
+		values := record.Values
+
+		path := model.PathOut{
+			Idx:            values[0].(int64),
+			SourceNodeName: values[1].(string),
+			TargetNodeName: values[2].(string),
+			TotalCost:      values[3].(float64),
+			Path:           values[4],
+			PathCosts:      values[5],
+		}
+
+		paths = append(paths, path)
+	}
+
+	return paths
 }

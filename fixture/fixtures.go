@@ -62,7 +62,7 @@ func (f *Fixture) Apply() error {
 }
 
 func (f *Fixture) Drop() (string, error) {
-	session := f.dbConn.InitWriteSession()
+	session := f.dbConn.InitWriteSession([]string{})
 	defer session.Close()
 
 	if _, err := session.WriteTransaction(f.dropAllTxFunc()); err != nil {
@@ -82,7 +82,7 @@ func (f *Fixture) ReadDump(path string) []byte {
 }
 
 func (f *Fixture) ApplyDump(dumps [][]byte) (string, error) {
-	session := f.dbConn.InitWriteSession()
+	session := f.dbConn.InitWriteSession([]string{})
 	defer session.Close()
 
 	for _, dump := range dumps {

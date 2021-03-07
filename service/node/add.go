@@ -10,7 +10,7 @@ import (
 )
 
 func (s *Service) AddNode(node model.Node) (*model.Node, error) {
-	session := s.db.InitWriteSession()
+	session := s.db.InitWriteSession([]string{})
 	defer session.Close()
 
 	record, err := session.WriteTransaction(s.addNodeTxFunc(node))

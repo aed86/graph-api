@@ -26,7 +26,7 @@ func main() {
 	defer dbConnection.Disconnect()
 
 	nodeService := node_service.New(&dbConnection)
-	relationService := relation_service.New(&dbConnection)
+	relationService := relation_service.New(&dbConnection, nodeService)
 	getHandler := get.NewHandler(nodeService, relationService)
 	addHandler := add.NewHandler(nodeService, relationService)
 	deleteHandler := delete2.NewHandler(nodeService, relationService)

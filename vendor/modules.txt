@@ -28,3 +28,6 @@ github.com/neo4j/neo4j-go-driver/v4/neo4j/log
 # github.com/oxtoacart/bpool v0.0.0-20190530202638-03653db5a59c
 ## explicit
 github.com/oxtoacart/bpool
+# golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
+## explicit
+golang.org/x/sync/errgroup

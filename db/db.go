@@ -46,10 +46,11 @@ func (db Db) InitReadSession(bookmarks []string) neo4j.Session {
 	return session
 }
 
-func (db Db) InitWriteSession() neo4j.Session {
+func (db Db) InitWriteSession(bookmarks []string) neo4j.Session {
 	session := db.Driver.NewSession(neo4j.SessionConfig{
 		AccessMode:   neo4j.AccessModeWrite,
 		DatabaseName: "neo4j",
+		Bookmarks: bookmarks,
 	})
 
 	return session
