@@ -25,7 +25,10 @@ I have realised base REST API with main handlers which allow get, add, update an
 ###### Get all nodes
 
 `curl --location --request GET 'localhost:3000/' \
---header 'Content-Type: application/json'`
+--header 'Content-Type: application/json' \
+--data-raw '{
+"limit": 100
+}'`
 
 ###### Get node by id
 
@@ -65,6 +68,7 @@ I have realised base REST API with main handlers which allow get, add, update an
 `curl --location --request GET 'localhost:3000/node/52/neighbours' \
 --header 'Content-Type: application/json' \
 --data-raw '{
+"limit": 10
 }'`
 
 

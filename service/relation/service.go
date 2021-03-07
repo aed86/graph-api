@@ -54,7 +54,7 @@ func (s *Service) buildPathInfoFromRecords(records []db.Record) []model.PathOut 
 	return paths
 }
 
-func (s Service) AddRelation(personID1, personID2 int64) (*model.Relation, error) {
+func (s *Service) AddRelation(personID1, personID2 int64) (*model.Relation, error) {
 	session := s.db.InitWriteSession()
 	defer session.Close()
 
@@ -68,7 +68,7 @@ func (s Service) AddRelation(personID1, personID2 int64) (*model.Relation, error
 	return &relation, nil
 }
 
-func (s Service) DeleteRelation(personID1, personID2 int64) error {
+func (s *Service) DeleteRelation(personID1, personID2 int64) error {
 	session := s.db.InitWriteSession()
 	defer session.Close()
 
@@ -89,14 +89,51 @@ func (s *Service) GetAll(limit int64) (*model.Relation, error) {
 		return nil, err
 	}
 
-	relation := s.buildRelationsFromRecordsPair(res.([]db.Record))
+	relation := s.buildRelationsForAllCase(res.([]db.Record))
 
 	return &relation, nil
 }
 
+func (s *Service) buildRelationsForAllCase(res []db.Record) model.Relation {
+	nodes := make(map[int64]model.Node, 0)
+	links := make(map[int64]model.Link, 0)
+	var nodeRecords []dbtype.Node
+	var linkRecords []dbtype.Relationship
+
+	for _, record := range res {
+		nodeRecords = append(nodeRecords, record.Values[0].(dbtype.Node))
+		for _, lr := range record.Values[1].([]interface{}) {
+			linkRecords = append(linkRecords, lr.(dbtype.Relationship))
+		}
+	}
+
+	if len(nodeRecords) > 0 {
+		for _, nodeRecord := range nodeRecords {
+			node := model.ParseFromDbTypeToNode(nodeRecord)
+			nodes[node.ID] = node
+		}
+	}
+
+	if len(linkRecords) > 0 {
+		for _, linkRecord := range linkRecords {
+			link := model.ParseFromDbTypeToLink(linkRecord)
+			if _, ok := nodes[link.Target]; ok {
+				if _, ok2 := nodes[link.Source]; ok2 {
+					links[link.ID] = link
+				}
+			}
+		}
+	}
+
+	return model.Relation{
+		Nodes: nodes,
+		Links: links,
+	}
+}
+
 func (s *Service) buildRelationsFromRecordsPair(res []db.Record) model.Relation {
 	nodes := make(map[int64]model.Node, 0)
-	var links []model.Link
+	links := make(map[int64]model.Link, 0)
 	for _, recordPair := range res {
 		sourceNode := model.ParseFromDbTypeToNode(recordPair.Values[0].(dbtype.Node))
 		targetNode := model.ParseFromDbTypeToNode(recordPair.Values[1].(dbtype.Node))
@@ -108,7 +145,7 @@ func (s *Service) buildRelationsFromRecordsPair(res []db.Record) model.Relation 
 			nodes[targetNode.ID] = targetNode
 		}
 
-		links = append(links, link)
+		links[link.ID] = link
 	}
 
 	return model.Relation{
@@ -119,13 +156,12 @@ func (s *Service) buildRelationsFromRecordsPair(res []db.Record) model.Relation 
 
 func (s *Service) findAllNodesWithRelationsTxFunc(limit int64) neo4j.TransactionWork {
 	return func(tx neo4j.Transaction) (interface{}, error) {
-		result, err := tx.Run("MATCH (a:Node)-[d:ROAD]-(b:Node) RETURN a, b, d", nil)
-		//result, err := tx.Run(
-		//	"MATCH (a:Node) MATCH (a)-[d:ROAD]-(:Node) RETURN a, collect(d) as roads limit $limit",
-		//	map[string]interface{}{
-		//		"limit": limit,
-		//	},
-		//)
+		result, err := tx.Run(
+			"MATCH (a:Node) MATCH (a)-[d:ROAD]-(:Node) RETURN a, collect(distinct d) as roads limit $limit",
+			map[string]interface{}{
+				"limit": limit,
+			},
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -163,7 +199,7 @@ func (s *Service) findShortestPath(cond model.PathIn) neo4j.TransactionWork {
 	}
 }
 
-func (s Service) addRelation(personID1 int64, personID2 int64) neo4j.TransactionWork {
+func (s *Service) addRelation(personID1 int64, personID2 int64) neo4j.TransactionWork {
 	return func(tx neo4j.Transaction) (interface{}, error) {
 		result, err := tx.Run(
 			"MATCH (a:Node) WHERE ID(a) = $ID1 "+
@@ -185,7 +221,7 @@ func (s Service) addRelation(personID1 int64, personID2 int64) neo4j.Transaction
 	}
 }
 
-func (s Service) deleteRelation(personID1 int64, personID2 int64) neo4j.TransactionWork {
+func (s *Service) deleteRelation(personID1 int64, personID2 int64) neo4j.TransactionWork {
 	return func(tx neo4j.Transaction) (interface{}, error) {
 		result, err := tx.Run(
 			"MATCH (a:Node)-[d:ROAD]->(b:Node) WHERE ID(a) = $ID1 and ID(b) = $ID2 DELETE d",
