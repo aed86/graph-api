@@ -15,7 +15,7 @@ I have realised base REST API with main handlers which allow get, add, update an
 
 ###### To find shortest path between nodes run:
 
-`curl --location --request POST 'localhost:3000/find/shortest_path' \
+`curl --location --request POST 'localhost:3000s' \
 --header 'Content-Type: application/json' \
 --data-raw '{
 "sourceName": "A",

@@ -26,23 +26,81 @@ func (s *Service) GetShortestPath(cond model.PathIn) ([]model.PathOut, error) {
 	session := s.db.InitReadSession([]string{})
 	defer session.Close()
 
-	res, err := session.ReadTransaction(s.findShortestPath(cond))
+	bookmark1, err := s.rebuildGraph()
 	if err != nil {
 		return nil, err
 	}
 
-	result := s.buildPathInfoFromRecords(res.([]db.Record))
+	res, err := s.findShortestPath(cond, []string{bookmark1})
+	if err != nil {
+		return nil, err
+	}
+
+	result := s.buildPathInfoFromRecords(res)
 
 	return result, nil
 }
 
-func (s *Service) AddRelation(nodeID1, nodeID2 int64) (*model.Relation, error) {
-	bookmark1, err := s.ns.CheckIfNodesExist([]int64{nodeID1, nodeID2})
+func (s *Service) rebuildGraph() (string, error){
+	session := s.db.InitWriteSession([]string{})
+	defer session.Close()
+
+	if _, err := session.WriteTransaction(s.dropGraphTxFunc()); err != nil {
+		return "", err
+	}
+
+	if _, err := session.WriteTransaction(s.buildGraphTxFunc()); err != nil {
+		return "", err
+	}
+
+	return session.LastBookmark(), nil
+}
+
+func (s *Service) dropGraphTxFunc() neo4j.TransactionWork {
+	return func(tx neo4j.Transaction) (interface{}, error) {
+		query := `CALL gds.graph.drop('myGraph4')`
+		result, err := tx.Run(query, nil)
+
+		if err != nil {
+			return nil, err
+		}
+
+		return result.Consume()
+	}
+}
+
+func (s *Service) buildGraphTxFunc() neo4j.TransactionWork {
+	return func(tx neo4j.Transaction) (interface{}, error) {
+		query := `CALL gds.graph.create('myGraph4', 'Node', 'ROAD', {relationshipProperties:'cost'})`
+		result, err := tx.Run(query, nil)
+
+		if err != nil {
+			return nil, err
+		}
+
+		return result.Consume()
+	}
+}
+
+func (s *Service) findShortestPath(cond model.PathIn, bookmarks []string) ([]db.Record, error){
+	session := s.db.InitReadSession(bookmarks)
+	defer session.Close()
+
+	res, err := session.ReadTransaction(s.findShortestPathTxFunc(cond))
+	if err != nil {
+		return nil, err
+	}
+
+	return res.([]db.Record), nil
+}
+
+func (s *Service) AddRelation(link model.Link) (*model.Relation, error) {
+	bookmark1, err := s.ns.CheckIfNodesExist([]int64{link.Source, link.Target})
 
 	session := s.db.InitWriteSession([]string{bookmark1})
 	defer session.Close()
 
-	res, err := session.WriteTransaction(s.addRelation(nodeID1, nodeID2))
+	res, err := session.WriteTransaction(s.addRelation(link))
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +221,7 @@ func (s *Service) findAllNodesWithRelationsTxFunc(limit int64) neo4j.Transaction
 	}
 }
 
-func (s *Service) findShortestPath(cond model.PathIn) neo4j.TransactionWork {
+func (s *Service) findShortestPathTxFunc(cond model.PathIn) neo4j.TransactionWork {
 	return func(tx neo4j.Transaction) (interface{}, error) {
 		query := `MATCH (source:Node {name: $sname}), (target:Node {name: $tname}) CALL gds.beta.shortestPath.dijkstra.stream('myGraph4', {sourceNode: id(source),targetNode: id(target),relationshipWeightProperty: 'cost'}) YIELD index, sourceNode, targetNode, totalCost, nodeIds, costs RETURN index, gds.util.asNode(sourceNode).name AS sourceNodeName, gds.util.asNode(targetNode).name AS targetNodeName, totalCost, [nodeId IN nodeIds |gds.util.asNode(nodeId).name] AS nodeNames, costs ORDER BY index`
 		result, err := tx.Run(query, map[string]interface{}{
@@ -185,12 +243,18 @@ func (s *Service) findShortestPath(cond model.PathIn) neo4j.TransactionWork {
 	}
 }
 
-func (s *Service) addRelation(nodeID1 int64, nodeID2 int64) neo4j.TransactionWork {
+func (s *Service) addRelation(link model.Link) neo4j.TransactionWork {
 	return func(tx neo4j.Transaction) (interface{}, error) {
 		result, err := tx.Run(
 			"MATCH (a:Node) WHERE ID(a) = $ID1 "+
 				"MATCH (b:Node) WHERE ID(b) = $ID2 "+
-				"MERGE (a)-[d:ROAD]->(b) RETURN a, b, d", map[string]interface{}{"ID1": nodeID1, "ID2": nodeID2})
+				"MERGE (a)-[d:ROAD {cost: $cost}]->(b) RETURN a, b, d",
+			map[string]interface{}{
+				"ID1":  link.Source,
+				"ID2":  link.Target,
+				"cost": link.Cost,
+			},
+		)
 
 		if err != nil {
 			return nil, err

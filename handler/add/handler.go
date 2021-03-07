@@ -32,7 +32,7 @@ func (h Handler) AddNode(node model.Node, r render.Render) {
 }
 
 func (h Handler) AddRelation(link model.Link, r render.Render) {
-	result, err := h.linkService.AddRelation(link.Source, link.Target)
+	result, err := h.linkService.AddRelation(link)
 	if err != nil {
 		response.Error(r, err.Error(), 400)
 		return
